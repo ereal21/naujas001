@@ -39,6 +39,7 @@ from bot.database.methods import (
     update_category,
     update_item,
 )
+from bot.utils import generate_internal_name, display_name
 
 
 from bot.utils.files import get_next_file_path
@@ -120,7 +121,7 @@ async def assign_photo_category_handler(call: CallbackQuery):
         markup.add(InlineKeyboardButton(sub, callback_data=f'assign_photo_sub_{sub}'))
     items = get_all_item_names(category)
     for item in items:
-        markup.add(InlineKeyboardButton(item, callback_data=f'assign_photo_item_{item}'))
+        markup.add(InlineKeyboardButton(display_name(item), callback_data=f'assign_photo_item_{item}'))
     markup.add(InlineKeyboardButton('🔙 Back', callback_data='assign_photos'))
     await bot.edit_message_text('Choose subcategory or item:',
                                 chat_id=call.message.chat.id,
@@ -134,7 +135,7 @@ async def assign_photo_subcategory_handler(call: CallbackQuery):
     items = get_all_item_names(sub)
     markup = InlineKeyboardMarkup()
     for item in items:
-        markup.add(InlineKeyboardButton(item, callback_data=f'assign_photo_item_{item}'))
+        markup.add(InlineKeyboardButton(display_name(item), callback_data=f'assign_photo_item_{item}'))
     markup.add(InlineKeyboardButton('🔙 Back', callback_data='assign_photos'))
     await bot.edit_message_text('Choose item:',
                                 chat_id=call.message.chat.id,
@@ -553,16 +554,18 @@ async def add_item_category_selected(call: CallbackQuery):
     item_name = TgConfig.STATE.get(f'{user_id}_name')
     item_description = TgConfig.STATE.get(f'{user_id}_description')
     item_price = TgConfig.STATE.get(f'{user_id}_price')
-    create_item(item_name, item_description, item_price, category, None)
-    TgConfig.STATE[user_id] = None
-    for key in ('name', 'description', 'price'):
-        TgConfig.STATE.pop(f'{user_id}_{key}', None)
-    await bot.edit_message_text('✅ Item created, product added',
+    internal_name = generate_internal_name(item_name)
+    create_item(internal_name, item_description, item_price, category, None)
+    admin_info = await bot.get_chat(user_id)
+    logger.info(f"User {user_id} ({admin_info.first_name}) created new item \"{internal_name}\"")
+    markup = InlineKeyboardMarkup().add(
+        InlineKeyboardButton('✅ Yes', callback_data='add_item_more_yes'),
+        InlineKeyboardButton('❌ No', callback_data='add_item_more_no')
+    )
+    await bot.edit_message_text('Add this product somewhere else?',
                                 chat_id=call.message.chat.id,
                                 message_id=call.message.message_id,
-                                reply_markup=back('item-management'))
-    admin_info = await bot.get_chat(user_id)
-    logger.info(f"User {user_id} ({admin_info.first_name}) created new item \"{item_name}\"")
+                                reply_markup=markup)
 
 
 async def add_item_subcategory_selected(call: CallbackQuery):
@@ -571,16 +574,34 @@ async def add_item_subcategory_selected(call: CallbackQuery):
     item_name = TgConfig.STATE.get(f'{user_id}_name')
     item_description = TgConfig.STATE.get(f'{user_id}_description')
     item_price = TgConfig.STATE.get(f'{user_id}_price')
-    create_item(item_name, item_description, item_price, sub, None)
+    internal_name = generate_internal_name(item_name)
+    create_item(internal_name, item_description, item_price, sub, None)
+    admin_info = await bot.get_chat(user_id)
+    logger.info(f"User {user_id} ({admin_info.first_name}) created new item \"{internal_name}\"")
+    markup = InlineKeyboardMarkup().add(
+        InlineKeyboardButton('✅ Yes', callback_data='add_item_more_yes'),
+        InlineKeyboardButton('❌ No', callback_data='add_item_more_no')
+    )
+    await bot.edit_message_text('Add this product somewhere else?',
+                                chat_id=call.message.chat.id,
+                                message_id=call.message.message_id,
+                                reply_markup=markup)
+
+
+async def add_item_more_yes(call: CallbackQuery):
+    await add_item_choose_category(call)
+
+
+async def add_item_more_no(call: CallbackQuery):
+    bot, user_id = await get_bot_user_ids(call)
     TgConfig.STATE[user_id] = None
     for key in ('name', 'description', 'price'):
         TgConfig.STATE.pop(f'{user_id}_{key}', None)
-    await bot.edit_message_text('✅ Item created, product added',
+    TgConfig.STATE.pop(f'{user_id}_message_id', None)
+    await bot.edit_message_text('✅ Items created, products added',
                                 chat_id=call.message.chat.id,
                                 message_id=call.message.message_id,
                                 reply_markup=back('item-management'))
-    admin_info = await bot.get_chat(user_id)
-    logger.info(f"User {user_id} ({admin_info.first_name}) created new item \"{item_name}\"")
 
 
 async def update_item_amount_callback_handler(call: CallbackQuery):
@@ -954,6 +975,10 @@ def register_shop_management(dp: Dispatcher) -> None:
                                        lambda c: c.data.startswith('add_item_cat_'))
     dp.register_callback_query_handler(add_item_subcategory_selected,
                                        lambda c: c.data.startswith('add_item_sub_'))
+    dp.register_callback_query_handler(add_item_more_yes,
+                                       lambda c: c.data == 'add_item_more_yes')
+    dp.register_callback_query_handler(add_item_more_no,
+                                       lambda c: c.data == 'add_item_more_no')
     dp.register_callback_query_handler(add_item_choose_category,
                                        lambda c: c.data == 'add_item_choose_cat')
     dp.register_callback_query_handler(delete_category_callback_handler,

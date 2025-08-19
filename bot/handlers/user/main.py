@@ -33,6 +33,7 @@ from bot.logger_mesh import logger
 from bot.misc import TgConfig, EnvKeys
 from bot.misc.payment import quick_pay, check_payment_status
 from bot.misc.nowpayments import create_payment, check_payment
+from bot.utils import display_name
 
 
 def build_menu_text(user_obj, balance: float, purchases: int, lang: str) -> str:
@@ -55,7 +56,7 @@ def build_subcategory_description(parent: str, lang: str) -> str:
         for item in goods:
             info = get_item_info(item)
             amount = select_item_values_amount(item) if not check_value(item) else '∞'
-            lines.append(f"    • {item} ({info['price']:.2f}€) - {amount}")
+            lines.append(f"    • {display_name(item)} ({info['price']:.2f}€) - {amount}")
         lines.append("")
     lines.append(t(lang, 'choose_subcategory'))
     return "\n".join(lines)
@@ -141,7 +142,7 @@ async def pavogti(message: Message):
         return
     markup = InlineKeyboardMarkup()
     for itm in items:
-        markup.add(InlineKeyboardButton(itm, callback_data=f'pavogti_item_{itm}'))
+        markup.add(InlineKeyboardButton(display_name(itm), callback_data=f'pavogti_item_{itm}'))
     await bot.send_message(user_id, 'Select item:', reply_markup=markup)
 
 
@@ -208,10 +209,10 @@ async def price_list_callback_handler(call: CallbackQuery):
             lines.append(f"  {sub}")
             for item in get_all_items(sub):
                 info = get_item_info(item)
-                lines.append(f"    • {item} ({info['price']:.2f}€)")
+                lines.append(f"    • {display_name(item)} ({info['price']:.2f}€)")
         for item in get_all_items(category):
             info = get_item_info(item)
-            lines.append(f"  • {item} ({info['price']:.2f}€)")
+            lines.append(f"  • {display_name(item)} ({info['price']:.2f}€)")
     text = '\n'.join(lines)
     await call.answer()
     await bot.send_message(call.message.chat.id, text,
@@ -268,6 +269,8 @@ async def blackjack_receive_bet(message: Message):
     balance = get_user_balance(user_id)
     if not text.isdigit() or int(text) <= 0:
         await bot.send_message(user_id, '❌ Invalid bet amount')
+    elif int(text) > 5:
+        await bot.send_message(user_id, '❌ Maximum bet is 5€')
     elif int(text) > balance:
         markup = InlineKeyboardMarkup().add(
             InlineKeyboardButton('💳 Top up balance', callback_data='replenish_balance'))
@@ -357,6 +360,9 @@ async def start_blackjack_game(call: CallbackQuery, bet: int):
     balance = get_user_balance(user_id)
     if bet <= 0:
         await call.answer('❌ Invalid bet')
+        return
+    if bet > 5:
+        await call.answer('❌ Maximum bet is 5€', show_alert=True)
         return
     if bet > balance:
         markup = InlineKeyboardMarkup().add(
@@ -536,7 +542,7 @@ async def item_info_callback_handler(call: CallbackQuery):
     lang = get_user_language(user_id) or 'en'
     markup = item_info(item_name, category, lang)
     await bot.edit_message_text(
-        f'🏪 Item {item_name}\n'
+        f'🏪 Item {display_name(item_name)}\n'
         f'Description: {item_info_list["description"]}\n'
         f'Price - {item_info_list["price"]}€\n'
         f'{quantity}',
@@ -710,7 +716,7 @@ async def bought_item_info_callback_handler(call: CallbackQuery):
     TgConfig.STATE[user_id] = None
     item = get_bought_item_info(item_id)
     await bot.edit_message_text(
-        f'<b>Item</b>: <code>{item["item_name"]}</code>\n'
+        f'<b>Item</b>: <code>{display_name(item["item_name"])}</code>\n'
         f'<b>Price</b>: <code>{item["price"]}</code>€\n'
         f'<b>Purchase date</b>: <code>{item["bought_datetime"]}</code>',
         chat_id=call.message.chat.id,
@@ -1010,6 +1016,12 @@ async def set_language(call: CallbackQuery):
     markup = main_menu(role, TgConfig.REVIEWS_URL, TgConfig.PRICE_LIST_URL, lang_code)
     purchases = select_user_items(user_id)
     text = build_menu_text(call.from_user, balance, purchases, lang_code)
+
+    try:
+        with open(TgConfig.START_PHOTO_PATH, 'rb') as photo:
+            await bot.send_photo(user_id, photo)
+    except Exception:
+        pass
 
     await bot.send_message(
         chat_id=user_id,
