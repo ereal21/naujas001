@@ -2,6 +2,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.localization import t
 from bot.database.methods import get_category_parent
+from bot.utils import display_name
 
 
 
@@ -64,7 +65,7 @@ def goods_list(list_items: list[str], category_name: str) -> InlineKeyboardMarku
     """Show all goods for a category without pagination."""
     markup = InlineKeyboardMarkup()
     for name in list_items:
-        markup.add(InlineKeyboardButton(text=name, callback_data=f'item_{name}'))
+        markup.add(InlineKeyboardButton(text=display_name(name), callback_data=f'item_{name}'))
     markup.add(InlineKeyboardButton('🔙 Go back', callback_data='shop'))
     return markup
 
@@ -85,7 +86,7 @@ def user_items_list(list_items: list, data: str, back_data: str, pre_back: str, 
     markup = InlineKeyboardMarkup()
     page_items = list_items[current_index * 10: (current_index + 1) * 10]
     for item in page_items:
-        markup.add(InlineKeyboardButton(text=item.item_name, callback_data=f'bought-item:{item.id}:{pre_back}'))
+        markup.add(InlineKeyboardButton(text=display_name(item.item_name), callback_data=f'bought-item:{item.id}:{pre_back}'))
     if max_index > 0:
         buttons = [
             InlineKeyboardButton(text='◀️', callback_data=f'bought-goods-page_{current_index - 1}_{data}'),
@@ -273,12 +274,13 @@ def confirm_cancel(invoice_id: str, lang: str) -> InlineKeyboardMarkup:
 
 def crypto_choice() -> InlineKeyboardMarkup:
     inline_keyboard = [
-        [InlineKeyboardButton('ETH', callback_data='crypto_ETH'),
-         InlineKeyboardButton('SOL', callback_data='crypto_SOL')],
-        [InlineKeyboardButton('BTC', callback_data='crypto_BTC'),
-         InlineKeyboardButton('XRP', callback_data='crypto_XRP')],
+        [InlineKeyboardButton('SOL', callback_data='crypto_SOL'),
+         InlineKeyboardButton('BTC', callback_data='crypto_BTC')],
+        [InlineKeyboardButton('TRX', callback_data='crypto_TRX'),
+         InlineKeyboardButton('TON', callback_data='crypto_TON')],
+        [InlineKeyboardButton('USDT-TRC20', callback_data='crypto_USDTTRC20'),
+         InlineKeyboardButton('ETH', callback_data='crypto_ETH')],
         [InlineKeyboardButton('LTC', callback_data='crypto_LTC')],
-
         [InlineKeyboardButton('🔙 Go back', callback_data='replenish_balance')]
     ]
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
