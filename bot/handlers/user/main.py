@@ -613,10 +613,13 @@ async def buy_item_callback_handler(call: CallbackQuery):
                 with open(log_path, 'a') as log_file:
                     log_file.write(f"{formatted_time} user:{user_id} item:{item_name} price:{item_price}\n")
 
-                await bot.edit_message_text(chat_id=call.message.chat.id,
-                                           message_id=msg,
-                                           text=f'✅ Item purchased. 📦 Total Purchases: {purchases}',
-                                           reply_markup=back(f'item_{item_name}'))
+                try:
+                    await bot.edit_message_text(chat_id=call.message.chat.id,
+                                               message_id=msg,
+                                               text=f'✅ Item purchased. 📦 Total Purchases: {purchases}',
+                                               reply_markup=back(f'item_{item_name}'))
+                except Exception:
+                    pass
                 buy_item(value_data['id'], value_data['is_infinity'])
 
                 cleanup_item_file(value_data['value'])
@@ -629,12 +632,18 @@ async def buy_item_callback_handler(call: CallbackQuery):
                     f'✅ Item purchased. <b>Balance</b>: <i>{new_balance}</i>€\n'
                     f'📦 Purchases: {purchases}\n\n{value_data["value"]}'
                 )
-                await bot.edit_message_text(chat_id=call.message.chat.id,
-                                           message_id=msg,
+                try:
+                    await bot.edit_message_text(chat_id=call.message.chat.id,
+                                               message_id=msg,
+                                               text=text,
+                                               parse_mode='HTML',
+                                               reply_markup=home_markup(get_user_language(user_id) or 'en')
+                    )
+                except Exception:
+                    await bot.send_message(chat_id=call.message.chat.id,
                                            text=text,
                                            parse_mode='HTML',
-                                           reply_markup=home_markup(get_user_language(user_id) or 'en')
-                )
+                                           reply_markup=home_markup(get_user_language(user_id) or 'en'))
                 buy_item(value_data['id'], value_data['is_infinity'])
 
             user_info = await bot.get_chat(user_id)

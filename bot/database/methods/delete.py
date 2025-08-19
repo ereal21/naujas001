@@ -53,22 +53,9 @@ def finish_operation(operation_id: str) -> None:
 
 
 def buy_item(item_id: str, infinity: bool = False) -> None:
-    """Remove item value record once purchased.
-
-    File cleanup is handled after successful delivery to the user."""
-    if infinity is False:
+    """Remove item value record once purchased."""
+    if not infinity:
         session = Database().session
         session.query(ItemValues).filter(ItemValues.id == item_id).delete()
         session.commit()
 
-        session = Database().session
-        session.query(ItemValues).filter(ItemValues.id == item_id).delete()
-        session.commit()
-
-        value = Database().session.query(ItemValues.value).filter(ItemValues.id == item_id).first()
-        if value and os.path.isfile(value[0]):
-            os.remove(value[0])
-        Database().session.query(ItemValues).filter(ItemValues.id == item_id).delete()
-        Database().session.commit()
-    else:
-        pass
